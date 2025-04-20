@@ -1,0 +1,74 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.gradleup.shadow' version '8.3.6'
+}
+
+group = 'example'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation(platform('org.junit:junit-bom:5.10.0'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+
+    implementation("org.slf4j:slf4j-api:2.0.17")
+    implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("ch.qos.logback:logback-core:1.5.18")
+}
+
+test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClass = 'example.Main'
+}
+
+distZip.enabled = false
+distTar.enabled = false
+
+shadowDistZip.enabled = false
+shadowDistTar.enabled = false
+
+jar.enabled = false
+
+shadowJar {
+    mergeServiceFiles()
+
+    minimize {
+        exclude(dependency("ch.qos.logback:.*:.*"))
+    }
+}
+
+tasks.register('jpackage', Exec) {
+    dependsOn shadowJar
+
+    def outputDir = file(layout.buildDirectory.dir("dist"))
+    def uberJar = file(tasks.shadowJar.archiveFile)
+    def imageName = "${project.name}-${version}"
+
+    doFirst {
+        outputDir.mkdirs()
+
+        outputDir.eachFile {
+            file -> file.delete()
+        }
+
+        outputDir.eachDir {
+            dir -> dir.deleteDir()
+        }
+    }
+
+    commandLine 'jpackage',
+            '--type', 'app-image',
+            '--app-version', version,
+            '--input', uberJar.parent,
+            '--main-jar', uberJar.name,
+            '--name', imageName,
+            '--dest', outputDir
+}
